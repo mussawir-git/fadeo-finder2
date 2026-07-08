@@ -68,7 +68,7 @@ function isTimeSlotTaken(shopId, barberName, date, time, excludeBookingId = null
 
 const page = document.body.dataset.page;
 const toastContainer = document.getElementById('toastContainer');
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://fadeo-backend.onrender.com/api';
 
 let marketplaceCache = [];
 let marketplaceRequest = null;
