@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>(function(){var t=localStorage.getItem("bc_theme")||"light";document.documentElement.dataset.theme=t;})()</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fadeo finder Owner Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.jpeg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body data-page="owner">
+    <!-- AUTH GUARD: Redirect to login if not an owner session -->
+    <script>
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (!session || (session.role !== 'owner' && session.role !== 'admin')) {
+                sessionStorage.setItem('bc_redirect_after_login', 'owner.html');
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p>Loading owner workspace...</p>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <div class="admin-shell owner-shell">
+        <aside class="sidebar owner-sidebar">
+            <div class="brand-sidebar">
+                <img src="images/logo.jpeg">
+                <span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="sidebar-link active">Dashboard</a>
+                <a href="#calendar" class="sidebar-link">Calendar</a>
+                <a href="#walkin" class="sidebar-link">Walk-in Queue</a>
+                <a href="#attendance" class="sidebar-link">Barber Attendance</a>
+                <a href="#offers" class="sidebar-link">Offers & Discounts</a>
+                <a href="#shop-photos" class="sidebar-link">Shop Photos</a>
+                <a href="#shop-profile" class="sidebar-link">Shop Profile</a>
+                <a href="#barbers" class="sidebar-link">Barbers</a>
+                <a href="#barber-reviews" class="sidebar-link">Barber Reviews</a>
+                <a href="#appointments" class="sidebar-link">Appointments</a>
+                <a href="#services" class="sidebar-link">Services</a>
+                <a href="#earnings" class="sidebar-link">Earnings</a>
+                <a href="#settings" class="sidebar-link">Working Hours</a>
+                <a href="index.html" class="sidebar-link">Marketplace</a>
+                <a href="#" class="sidebar-link" onclick="ownerLogout()" style="color:#f25f5c;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </nav>
+            <button class="btn btn-block btn-light" data-action="toggle-theme"><i class="fa-solid fa-circle-half-stroke"></i> Toggle Theme</button>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header">
+                <div>
+                    <p class="eyebrow">Owner Workspace</p>
+                    <h1>Manage Your Shop</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn-round" onclick="scrollToSection('owner-notifications')" title="Notifications">
+                        <i class="fa-solid fa-bell"></i>
+                    </button>
+                    <span class="date-badge"><i class="fa-solid fa-calendar-days"></i> <span id="ownerHeaderDate"></span></span>
+                    <button class="btn btn-primary" onclick="openWalkinModal()"><i class="fa-solid fa-plus"></i> New Walk-in</button>
+                </div>
+            </header>
+
+            <section class="section" id="owner-notifications">
+                <div class="section-title-row">
+                    <h2><i class="fa-solid fa-bell" style="color:var(--accent);margin-right:.4rem;"></i>Notifications</h2>
+                </div>
+                <div class="card" id="ownerNotifications"></div>
+            </section>
+
+            <section class="section">
+                <div class="section-title-row">
+                    <h2><i class="fa-solid fa-door-open" style="color:var(--accent);margin-right:.4rem;"></i>Shop Status</h2>
+                </div>
+                <div class="card" id="ownerShopStatus"></div>
+            </section>
+
+            <section id="dashboard" class="section">
+                <div class="cards-grid">
+                    <div class="metric-card">
+                        <span class="metric-title">Live Queue</span>
+                        <strong id="ownerLiveQueue">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Today’s Bookings</span>
+                        <strong id="ownerTodayBookings">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Current Earnings</span>
+                        <strong id="ownerEarnings">₹0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Barbers Active</span>
+                        <strong id="ownerBarbersActive">0</strong>
+                    </div>
+                </div>
+
+                <div class="analytics-card owner-analytics">
+                    <div class="section-headline">
+                        <div>
+                            <h2>Earnings Trend</h2>
+                            <p>Track sales and busy hours per day.</p>
+                        </div>
+                        <div class="chip">This Week</div>
+                    </div>
+                    <canvas id="ownerEarningsChart" height="220"></canvas>
+                </div>
+            </section>
+
+            <!-- LIVE APPOINTMENT CALENDAR -->
+            <section id="calendar" class="section">
+                <div class="section-title-row">
+                    <h2>Live Appointment Calendar</h2>
+                    <div style="display:flex;gap:.5rem;align-items:center;">
+                        <button class="btn btn-light" onclick="shiftCalendarDay(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="calendarDateLabel" style="font-weight:700;min-width:140px;text-align:center;"></span>
+                        <button class="btn btn-light" onclick="shiftCalendarDay(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="btn btn-primary" onclick="openQuickBookModal()"><i class="fa-solid fa-plus"></i> Add Booking</button>
+                    </div>
+                </div>
+                <p class="muted" style="margin-bottom:1rem;">See today's schedule at a glance, hour by hour.</p>
+                <div class="calendar-grid" id="calendarGrid"></div>
+            </section>
+
+            <!-- WALK-IN QUEUE DASHBOARD -->
+            <section id="walkin" class="section">
+                <div class="section-title-row">
+                    <h2>Walk-in Queue</h2>
+                    <button class="btn btn-primary" onclick="openWalkinModal()"><i class="fa-solid fa-plus"></i> New Walk-in</button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Track and serve walk-in customers who don't have a prior booking.</p>
+
+                <!-- Stat cards -->
+                <div class="cards-grid" id="walkinStatsGrid"></div>
+
+                <!-- Queue table + New Walk-in form -->
+                <div class="walkin-main-grid">
+                    <div class="table-panel">
+                        <div class="section-title-row" style="margin-bottom:.8rem;">
+                            <h3 style="font-size:1.05rem;">Today's Walk-in Queue</h3>
+                            <a href="#" id="walkinViewAllToggle" onclick="toggleWalkinViewAll(event)" style="color:var(--accent);font-weight:700;font-size:.85rem;">View All</a>
+                        </div>
+                        <table class="table" id="walkinTable">
+                            <thead>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Customer</th>
+                                    <th>Service</th>
+                                    <th>Barber</th>
+                                    <th>Status</th>
+                                    <th>Wait Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <div class="walkin-legend-key">
+                            <span><span class="walkin-legend-dot" style="background:#f1c40f;"></span> Waiting</span>
+                            <span><span class="walkin-legend-dot" style="background:#3b82f6;"></span> In Progress</span>
+                            <span><span class="walkin-legend-dot" style="background:#2ecc71;"></span> Completed</span>
+                            <span><span class="walkin-legend-dot" style="background:#e74c3c;"></span> Cancelled</span>
+                        </div>
+                    </div>
+
+                    <div class="card walkin-form-card">
+                        <h3>New Walk-in</h3>
+                        <p class="muted" style="margin-bottom:.8rem;">Add a customer straight into today's queue.</p>
+                        <div class="form-grid" style="gap:.8rem;">
+                            <label>Customer Name *
+                                <input id="walkinName" type="text" placeholder="Enter customer name">
+                            </label>
+                            <label>Mobile Number
+                                <input id="walkinMobile" type="text" placeholder="Enter mobile number">
+                            </label>
+                            <label>Service *
+                                <select id="walkinServiceSelect">
+                                    <option value="">Select service</option>
+                                </select>
+                            </label>
+                            <label>Preferred Barber
+                                <select id="walkinBarberSelect">
+                                    <option value="">Any available</option>
+                                </select>
+                            </label>
+                            <label>Priority
+                                <div class="priority-toggle" id="walkinPriorityToggle">
+                                    <button type="button" class="priority-option active" data-priority="Normal" onclick="selectWalkinPriority('Normal')">Normal</button>
+                                    <button type="button" class="priority-option" data-priority="VIP" onclick="selectWalkinPriority('VIP')">VIP</button>
+                                </div>
+                                <input type="hidden" id="walkinPriority" value="Normal">
+                            </label>
+                            <label style="grid-column:1/-1;">Notes (Optional)
+                                <textarea id="walkinNotes" rows="2" placeholder="Add notes here..." style="width:100%;resize:vertical;"></textarea>
+                            </label>
+                        </div>
+                        <button class="btn btn-primary btn-block" style="margin-top:1.2rem;" onclick="addWalkin()">
+                            <i class="fa-solid fa-person-walking"></i> Start Walk-in
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Today's Summary + Top Services + Current Token -->
+                <div class="walkin-bottom-grid">
+                    <div class="card">
+                        <h3>Today's Summary</h3>
+                        <div class="walkin-summary-list" id="walkinSummaryList"></div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Top Services Today</h3>
+                        <div class="walkin-chart-row">
+                            <canvas id="walkinServicesChart" height="140"></canvas>
+                            <div class="walkin-legend" id="walkinServicesLegend"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="section-title-row" style="margin-bottom:0;">
+                            <h3>Current Token</h3>
+                            <span class="live-dot"><i class="fa-solid fa-circle"></i> Live</span>
+                        </div>
+                        <div id="walkinCurrentTokenPanel"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BARBER ATTENDANCE / SHIFT -->
+            <section id="attendance" class="section">
+                <div class="section-title-row">
+                    <h2>Barber Attendance Today</h2>
+                    <span id="attendanceDateLabel" class="muted"></span>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Mark which barbers are working today.</p>
+                <div class="attendance-grid" id="attendanceGrid"></div>
+            </section>
+
+            <!-- OFFER / DISCOUNT MANAGER -->
+            <section id="offers" class="section">
+                <div class="section-title-row">
+                    <h2>Offers & Discounts</h2>
+                    <button class="btn btn-primary" onclick="openOfferModal()"><i class="fa-solid fa-plus"></i> Create Offer</button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Create % off deals or combo offers to attract customers.</p>
+                <div class="offers-grid" id="offersGrid"></div>
+            </section>
+
+            <!-- SHOP PHOTO UPLOAD SECTION -->
+            <section id="shop-photos" class="section">
+                <div class="section-title-row">
+                    <h2>Shop Photos</h2>
+                    <button class="btn btn-primary" onclick="openPhotoUploadModal()">
+                        <i class="fa-solid fa-upload"></i> Upload Photo
+                    </button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Upload photos of your shop to attract more customers on the marketplace.</p>
+                <div class="photo-gallery" id="shopPhotoGallery">
+                    <div class="photo-upload-placeholder" onclick="openPhotoUploadModal()">
+                        <i class="fa-solid fa-camera" style="font-size:2rem;color:var(--accent);"></i>
+                        <p>Click to upload your first shop photo</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SHOP PROFILE: About description, contact numbers, amenities -->
+            <section id="shop-profile" class="section">
+                <div class="section-title-row">
+                    <h2>Shop Profile</h2>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">This information appears on your public shop page in the marketplace.</p>
+                <div class="card shop-profile-form">
+                    <label>About Shop
+                        <textarea id="profileDescriptionInput" rows="4" placeholder="Tell customers what makes your shop worth visiting..."></textarea>
+                    </label>
+                    <div class="profile-form-row">
+                        <label>Phone Number
+                            <input type="text" id="profilePhoneInput" placeholder="+91 98765 43210">
+                        </label>
+                        <label>WhatsApp Number
+                            <input type="text" id="profileWhatsappInput" placeholder="Leave blank to use phone number">
+                        </label>
+                    </div>
+                    <label>Amenities</label>
+                    <div class="amenity-checkbox-grid" id="profileAmenitiesGrid"></div>
+                    <button class="btn btn-primary" style="margin-top:1.2rem;" onclick="saveShopProfile()">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Shop Profile
+                    </button>
+                </div>
+            </section>
+
+            <section id="barbers" class="section">
+                <div class="section-title-row">
+                    <h2>Barbers</h2>
+                    <button class="btn btn-primary" onclick="openBarberModal()">Add Barber</button>
+                </div>
+                <div class="table-panel">
+                    <table class="table" id="barberTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Specialty</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- BARBER REVIEWS SECTION -->
+            <section id="barber-reviews" class="section">
+                <div class="section-title-row">
+                    <h2>Barber Reviews</h2>
+                    <button class="btn btn-light" onclick="refreshBarberReviews()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Customer reviews for each barber in your shop.</p>
+                <div id="barberReviewsContainer" class="barber-reviews-grid"></div>
+            </section>
+
+            <section id="appointments" class="section">
+                <div class="section-title-row">
+                    <h2>Appointment Management</h2>
+                    <button class="btn btn-light" onclick="refreshOwnerAppointments()">Refresh</button>
+                </div>
+                <div class="cards-grid" id="ownerAppointments"></div>
+            </section>
+
+            <section id="services" class="section">
+                <div class="section-title-row">
+                    <h2>Services</h2>
+                    <button class="btn btn-primary" onclick="openServiceModal()">Add Service</button>
+                </div>
+                <div class="table-panel">
+                    <table class="table" id="serviceTable">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Duration</th>
+                                <th>Price</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="earnings" class="section">
+                <div class="section-title-row">
+                    <h2>Earnings Dashboard</h2>
+                    <div style="display:flex;gap:.5rem;">
+                        <button class="btn btn-light" onclick="exportRevenueCSV()"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                        <button class="btn btn-light" onclick="exportRevenuePDF()"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+                    </div>
+                </div>
+                <div class="revenue-panels">
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Weekly Revenue</span>
+                        <strong id="ownerWeeklyRevenue">₹0</strong>
+                    </div>
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Average Service</span>
+                        <strong id="ownerAvgService">₹0</strong>
+                    </div>
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Customer Rating</span>
+                        <strong id="ownerCustomerRating">— / 5</strong>
+                    </div>
+                </div>
+                <div class="table-panel" style="margin-top:1.5rem;">
+                    <table class="table" id="revenueTable">
+                        <thead>
+                            <tr><th>Day</th><th>Revenue</th><th>Bookings</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="settings" class="section">
+                <div class="section-title-row">
+                    <h2>Working Hours</h2>
+                </div>
+                <div class="table-panel small-table">
+                    <table class="table" id="hoursTable">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>Open</th>
+                                <th>Close</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div style="margin-top:1rem;text-align:right;">
+                    <button class="btn btn-primary" onclick="saveOwnerHours()">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Working Hours
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="js/script.js"></script>
+
+    <!-- OWNER SESSION SCRIPT -->
+    <script>
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (session && session.name) {
+                const h1 = document.querySelector('.page-header h1');
+                if (h1) h1.textContent = 'Welcome, ' + session.name;
+            }
+        })();
+
+        function ownerLogout() {
+            localStorage.removeItem('bc_session');
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>

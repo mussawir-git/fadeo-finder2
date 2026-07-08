@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fadeo Finder - Customer Dashboard</title>
+    <script>
+        (function() {
+            const t = localStorage.getItem('bc_theme') || 'light';
+            document.documentElement.dataset.theme = t;
+        })();
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.jpeg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body data-page="customer">
+    <script>
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (!session || (session.role !== 'customer' && session.role !== 'admin')) {
+                sessionStorage.setItem('bc_redirect_after_login', 'customer.html');
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-card"><div class="spinner"></div><p>Loading your profile...</p></div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="customer-shell">
+        <header class="customer-header">
+            <div class="customer-brand">
+                <img src="images/logo.jpeg">
+                <span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span>
+            </div>
+            <div class="customer-actions">
+                <button class="btn btn-light" onclick="navigatePage('index.html')">Marketplace</button>
+                <button class="btn btn-light" onclick="customerLogout()" style="color:#f25f5c;">Logout</button>
+                <button class="btn btn-light" data-action="toggle-theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
+            </div>
+        </header>
+
+        <main class="container">
+
+            <!-- PROFILE PANEL -->
+            <section class="profile-panel card">
+                <div class="profile-top">
+                    <div class="profile-avatar-wrap">
+                        <div class="profile-avatar" id="profileAvatarDisplay">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <button class="avatar-edit-btn" onclick="openEditProfileModal()" title="Edit Profile">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                    </div>
+                    <div class="profile-info">
+                        <p class="eyebrow">Welcome back,</p>
+                        <h1 id="profileName">Loading...</h1>
+                        <p class="muted" id="profileCity"><i class="fa-solid fa-location-dot"></i> —</p>
+                        <p class="muted" id="profilePhone"><i class="fa-solid fa-phone"></i> —</p>
+                    </div>
+                    <div class="profile-summary">
+                        <div>
+                            <span>Loyalty Points</span>
+                            <strong id="loyaltyPoints">0 pts</strong>
+                        </div>
+                        <div>
+                            <span>Membership</span>
+                            <strong id="membershipTier">Silver</strong>
+                        </div>
+                        <div>
+                            <span>Saved Shops</span>
+                            <strong id="savedShopsCount">0</strong>
+                        </div>
+                    </div>
+                </div>
+                <!-- Loyalty Progress Bar -->
+                <div class="loyalty-bar-wrap">
+                    <div class="loyalty-bar-label">
+                        <span>Loyalty Progress</span>
+                        <span id="loyaltyBarLabel">0 / 500 pts to Gold</span>
+                    </div>
+                    <div class="loyalty-bar-track">
+                        <div class="loyalty-bar-fill" id="loyaltyBarFill" style="width:0%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-title-row">
+                    <h2><i class="fa-solid fa-bell" style="color:var(--accent);margin-right:.4rem;"></i>Notifications</h2>
+                </div>
+                <div class="card" id="customerNotifications"></div>
+            </section>
+
+            <!-- UPCOMING BOOKING + PAYMENTS -->
+            <section class="section split-grid">
+                <div class="card mini-card">
+                    <div class="section-headline">
+                        <div>
+                            <h2>Upcoming Appointments</h2>
+                            <p>Your next scheduled visits.</p>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="openBookingModal()">
+                            <i class="fa-solid fa-plus"></i> Book Now
+                        </button>
+                    </div>
+                    <div id="upcomingAppointments"><p class="muted">No upcoming appointments.</p></div>
+                </div>
+
+                <div class="card mini-card">
+                    <div class="section-headline">
+                        <div>
+                            <h2>Payments</h2>
+                            <p>Last transaction and balance.</p>
+                        </div>
+                    </div>
+                    <div class="payment-card">
+                        <div><span>Last Payment</span><strong>₹700</strong></div>
+                        <div><span>Method</span><strong>UPI</strong></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAVOURITE BARBERS -->
+            <section class="section">
+                <div class="section-title-row">
+                    <h2><i class="fa-solid fa-heart" style="color:#f25f5c;margin-right:.4rem;"></i>Favourite Barbers</h2>
+                </div>
+                <div class="fav-barbers-grid" id="favBarbersGrid">
+                    <p class="muted">No favourite barbers yet. Add one from shop listings!</p>
+                </div>
+                <p class="muted" style="margin:1rem 0 .5rem;font-size:.85rem;">Quick add / remove:</p>
+                <div class="quick-barber-row" id="allBarbersQuickAdd"></div>
+            </section>
+
+            <!-- BOOKING HISTORY -->
+            <section class="section">
+                <div class="section-title-row">
+                    <h2>Booking History</h2>
+                    <button class="btn btn-light" onclick="loadCustomerHistory()">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh
+                    </button>
+                </div>
+                <div class="history-grid" id="historyGrid"></div>
+            </section>
+
+            <!-- REVIEWS -->
+            <section class="section">
+                <div class="section-title-row">
+                    <h2>Reviews & Ratings</h2>
+                    <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+                        <button class="btn btn-light" onclick="openCustomerShopReviewModal()">
+                            <i class="fa-solid fa-store"></i> Review a Shop
+                        </button>
+                        <button class="btn btn-primary" onclick="openCustomerReviewModal()">
+                            <i class="fa-solid fa-star"></i> Review a Barber
+                        </button>
+                    </div>
+                </div>
+                <p class="muted" style="margin-bottom:1rem;">Share your experience with a barber, or rate a shop's overall service.</p>
+                <div class="search-filter-row" style="margin-bottom:1rem;">
+                    <div class="filter-pill active" data-review-tab="barber" onclick="switchReviewTab('barber')">Barber Reviews</div>
+                    <div class="filter-pill" data-review-tab="shop" onclick="switchReviewTab('shop')">Shop Reviews</div>
+                </div>
+                <div class="reviews-grid" id="reviewsGrid"></div>
+            </section>
+
+        </main>
+    </div>
+
+    <script defer src="js/script.js"></script>
+    <script>
+        function customerLogout() {
+            localStorage.removeItem('bc_session');
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>(function(){var t=localStorage.getItem("bc_theme")||"light";document.documentElement.dataset.theme=t;})()</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fadeo finder Admin Panel</title>
+    <link rel="icon" type="image/png" href="images/logo.jpeg">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body data-page="admin">
+
+    <!-- AUTH GUARD: Redirects to login if not an admin session -->
+    <script>
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (!session || session.role !== 'admin') {
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p>Loading admin insights...</p>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <div class="admin-shell">
+        <aside class="sidebar">
+            <div class="brand-sidebar">
+                <img src="images/logo.jpeg">
+                <span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#overview" class="sidebar-link active">Dashboard</a>
+                <a href="#approvals" class="sidebar-link">Shop Approvals</a>
+                <a href="#manage-shops" class="sidebar-link">Manage Shops</a>
+                <a href="#moderation" class="sidebar-link">Review Moderation</a>
+                <a href="#users" class="sidebar-link">User Management</a>
+                <a href="#bookings" class="sidebar-link">Booking Management</a>
+                <a href="#notifications" class="sidebar-link">Push Notifications</a>
+                <a href="#analytics" class="sidebar-link">Shop Analytics</a>
+                <a href="#revenue" class="sidebar-link">Revenue</a>
+                <a href="index.html" class="sidebar-link">Marketplace</a>
+                <a href="#" class="sidebar-link" onclick="logout()" style="color:#f25f5c;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </nav>
+            <button type="button" class="btn btn-block btn-light" data-action="toggle-theme" onclick="toggleTheme()">
+                <i class="fa-solid fa-circle-half-stroke"></i> Toggle Theme
+            </button>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header">
+                <div>
+                    <p class="eyebrow">Administrator Console</p>
+                    <h1>Platform Operations</h1>
+                </div>
+                <div class="header-actions">
+                    <span id="adminWelcome" style="color:var(--muted);font-size:0.9rem;align-self:center;"></span>
+                    <button class="btn btn-secondary" onclick="navigatePage('customer.html')">Open Customer UI</button>
+                    <button class="btn btn-primary" onclick="navigatePage('owner.html')">Open Owner UI</button>
+                </div>
+            </header>
+
+            <!-- OVERVIEW -->
+            <section id="overview" class="section">
+                <div class="cards-grid">
+                    <div class="metric-card">
+                        <span class="metric-title">Total Active Shops</span>
+                        <strong id="adminTotalShops">28</strong>
+                        <p>Verified listings on the marketplace.</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Pending Approvals</span>
+                        <strong id="adminPendingApprovals">6</strong>
+                        <p>New owners waiting for review.</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Weekly Bookings</span>
+                        <strong id="adminWeeklyBookings">184</strong>
+                        <p>Confirmed appointments this week.</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-title">Revenue Growth</span>
+                        <strong id="adminRevenueGrowth">+18.4%</strong>
+                        <p>Growth from last period.</p>
+                    </div>
+                </div>
+
+                <div class="analytics-card">
+                    <div class="section-headline">
+                        <div>
+                            <h2>Revenue Analytics</h2>
+                            <p>Platform performance and booking trends.</p>
+                        </div>
+                        <div class="chip">Monthly view</div>
+                    </div>
+                    <canvas id="adminRevenueChart" height="220"></canvas>
+                </div>
+            </section>
+
+            <!-- SHOP APPROVALS -->
+            <section id="approvals" class="section">
+                <div class="section-title-row">
+                    <h2>Shop Approval Queue</h2>
+                    <button class="btn btn-light" onclick="approveAllShops()">Approve All</button>
+                </div>
+                <div class="table-panel">
+                    <table class="table" id="approvalTable">
+                        <thead>
+                            <tr>
+                                <th>Shop</th>
+                                <th>Owner</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- MANAGE SHOPS (remove any live shop from the marketplace) -->
+            <section id="manage-shops" class="section">
+                <div class="section-title-row">
+                    <h2>Manage Shops</h2>
+                    <button class="btn btn-light" onclick="renderManageShopsTable()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">All shops currently live on the marketplace. Removing a shop takes it off the platform immediately &mdash; customers will no longer be able to find or book it.</p>
+                <div class="table-panel">
+                    <table class="table" id="manageShopsTable">
+                        <thead>
+                            <tr>
+                                <th>Shop</th>
+                                <th>Location</th>
+                                <th>Rating</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- REVIEW MODERATION -->
+            <section id="moderation" class="section">
+                <div class="section-title-row">
+                    <h2>Review Moderation</h2>
+                    <button class="btn btn-light" onclick="refreshModerationQueue()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Review and remove fake or abusive customer reviews.</p>
+                <div class="moderation-list" id="moderationList"></div>
+            </section>
+
+            <!-- USER MANAGEMENT -->
+            <section id="users" class="section">
+                <div class="section-title-row">
+                    <h2>User Management</h2>
+                    <button class="btn btn-light" onclick="refreshUsers()">Refresh</button>
+                </div>
+                <div class="table-panel">
+                    <table class="table" id="userTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Last Active</th>
+                                <th>Account Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- BOOKING MANAGEMENT -->
+            <section id="bookings" class="section">
+                <div class="section-title-row">
+                    <h2>Booking Management</h2>
+                    <button class="btn btn-light" onclick="refreshBookings()">Sync Data</button>
+                </div>
+                <div class="cards-grid" id="bookingCards"></div>
+            </section>
+
+            <!-- PUSH NOTIFICATIONS -->
+            <section id="notifications" class="section">
+                <div class="section-title-row">
+                    <h2>Push Notifications</h2>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Send announcements to all platform users.</p>
+                <div class="notification-composer card">
+                    <div class="form-grid" style="gap:.8rem;">
+                        <label>Title <input id="notifTitle" type="text" placeholder="e.g. New Year Offer!"></label>
+                        <label>Message <textarea id="notifMessage" rows="3" placeholder="Write your announcement here..." style="width:100%;resize:vertical;"></textarea></label>
+                        <label>Send To
+                            <select id="notifAudience">
+                                <option value="all">All Users</option>
+                                <option value="customer">Customers Only</option>
+                                <option value="owner">Shop Owners Only</option>
+                            </select>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top:1rem;" onclick="sendNotification()">
+                        <i class="fa-solid fa-paper-plane"></i> Send Notification
+                    </button>
+                </div>
+                <div class="section-title-row" style="margin-top:2rem;">
+                    <h3 style="font-size:1.1rem;">Sent History</h3>
+                </div>
+                <div class="notification-history" id="notificationHistory"></div>
+            </section>
+
+            <!-- SHOP ANALYTICS -->
+            <section id="analytics" class="section">
+                <div class="section-title-row">
+                    <h2>Detailed Analytics Per Shop</h2>
+                </div>
+                <p class="muted" style="margin-bottom:1.2rem;">Bookings, revenue, and reviews broken down by shop.</p>
+                <div class="shop-analytics-grid" id="shopAnalyticsGrid"></div>
+            </section>
+
+            <!-- REVENUE -->
+            <section id="revenue" class="section">
+                <div class="section-title-row">
+                    <h2>Revenue Summary</h2>
+                    <div class="mini-badges">
+                        <span>Subscriptions</span>
+                        <span>Commissions</span>
+                        <span>Referral Fees</span>
+                    </div>
+                </div>
+                <div class="revenue-panels">
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Total Revenue</span>
+                        <strong>&#8377;482,200</strong>
+                        <p>Revenue collected across all barber shops.</p>
+                    </div>
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Top Performing Shop</span>
+                        <strong>Golden Fade Studio</strong>
+                        <p>Highest weekly bookings and revenue.</p>
+                    </div>
+                    <div class="metric-card card-flex">
+                        <span class="metric-title">Average Ticket</span>
+                        <strong>&#8377;640</strong>
+                        <p>Average customer booking spend.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="js/script.js"></script>
+
+    <!-- ADMIN AUTH + LOGOUT SCRIPT -->
+    <script>
+        // Show welcome name from session
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (session && session.name) {
+                const el = document.getElementById('adminWelcome');
+                if (el) el.textContent = 'Hello, ' + session.name;
+            }
+        })();
+
+        // Logout: clear session and go back to login
+        function logout() {
+            localStorage.removeItem('bc_session');
+            window.location.replace('login.html');
+        }
+    </script>
+
+</body>
+</html>

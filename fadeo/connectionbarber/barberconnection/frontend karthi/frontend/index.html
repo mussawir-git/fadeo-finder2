@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>(function(){var t=localStorage.getItem("bc_theme")||"light";document.documentElement.dataset.theme=t;})()</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fadeo finder | Find Your Barber</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.jpeg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body data-page="landing">
+    <!-- AUTH GUARD: Redirect to login if no active session -->
+    <script>
+        (function () {
+            const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+            if (!session || !session.role) {
+                sessionStorage.setItem('bc_redirect_after_login', 'index.html');
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p>Loading shop list...</p>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="site-shell">
+        <header class="navbar">
+            <div class="logo">
+               <img src="images/logo.jpeg" alt="Fadeo Finder Logo">
+               <span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span>
+    </div>
+            <div class="nav-actions">
+                <button class="btn btn-light" onclick="marketplaceLogout()" style="color:#f25f5c;">Logout</button>
+                <button class="btn theme-toggle-btn" data-action="toggle-theme" title="Toggle theme"><i class="fa-solid fa-circle-half-stroke"></i></button>
+            </div>
+        </header>
+
+        <main class="container">
+            <section class="hero-banner">
+                <div class="hero-copy">
+                    <p class="eyebrow">Premium Barber Platform</p>
+                    <h1>Book the best barbers around your city.</h1>
+                    <p class="muted">Search, compare, and reserve instant appointments with trusted shops.</p>
+                    <div class="hero-cta">
+                        <button class="btn btn-primary" onclick="scrollToSection('searchSection')">Browse Shops</button>
+                        <button class="btn btn-secondary" onclick="navigatePage('customer.html')">My Dashboard</button>
+                    </div>
+                </div>
+                <div class="hero-visual"></div>
+            </section>
+
+            <section id="searchSection" class="section search-section">
+                <div class="search-panel card">
+                    <div class="search-row">
+                        <div class="search-input-group">
+                            <i class="fa-solid fa-location-dot"></i>
+                            <input id="landingSearchInput" type="text" placeholder="Search location, service, or barber" aria-label="Search barber shops">
+                        </div>
+                        <div class="filters-row">
+                            <select id="ratingFilter" aria-label="Filter by rating">
+                                <option value="all">Rating</option>
+                                <option value="4">4+ Stars</option>
+                                <option value="4.5">4.5+ Stars</option>
+                                <option value="5">5 Stars</option>
+                            </select>
+                            <select id="priceFilter" aria-label="Filter by price">
+                                <option value="all">Price</option>
+                                <option value="low">Lowest</option>
+                                <option value="high">Highest</option>
+                            </select>
+                            <select id="serviceTypeFilter" aria-label="Filter by service type">
+                                <option value="all">All Services</option>
+                                <option value="haircut">Haircut</option>
+                                <option value="beard">Beard</option>
+                                <option value="colour">Colour</option>
+                                <option value="kids">Kids</option>
+                                <option value="combo">Combo</option>
+                            </select>
+                            <select id="distanceFilter" aria-label="Filter by distance">
+                                <option value="all">Any Distance</option>
+                                <option value="1">Within 1 km</option>
+                                <option value="5">Within 5 km</option>
+                                <option value="10">Within 10 km</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="applyLandingSearch()">Search</button>
+                        </div>
+                    </div>
+                    <div class="search-row" style="margin-top:.8rem;">
+                        <label class="toggle-switch-wrap">
+                            <input type="checkbox" id="openNowToggle" onchange="applyLandingSearch()">
+                            <span class="toggle-switch"></span>
+                            <span class="toggle-label"><i class="fa-solid fa-clock"></i> Open Now Only</span>
+                        </label>
+                        <button class="btn btn-light" id="compareBtn" onclick="openCompareModal()" disabled>
+                            <i class="fa-solid fa-scale-balanced"></i> Compare Shops (<span id="compareCount">0</span>)
+                        </button>
+                    </div>
+                </div>
+                <div class="shop-grid" id="landingShopGrid"></div>
+            </section>
+        </main>
+    </div>
+
+    <script defer src="js/script.js"></script>
+    <script>
+        function marketplaceLogout() {
+            localStorage.removeItem('bc_session');
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>
