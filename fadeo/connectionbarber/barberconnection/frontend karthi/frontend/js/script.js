@@ -1173,8 +1173,8 @@ function applySearch() {
 
 function loadAdminData() {
     appState.shops = getAllMarketplaceShops();
-    appState.users = sampleUsers;
-    appState.bookings = sampleBookings;
+    appState.users = getAdminUsers();
+    appState.bookings = getAdminBookings();
     appState.pendingApprovals = getPendingOwnerRequests();
     loadLocalState();
 
@@ -1187,7 +1187,53 @@ function loadAdminData() {
     renderModerationQueue();
     renderNotificationHistory();
     renderShopAnalytics();
+    renderRevenueSummary();
     document.getElementById('loadingOverlay')?.classList.add('hidden');
+}
+
+// Reads every real registered account (customers, owners, admins) from the
+// shared credential store, so User Management always reflects who has
+// actually signed up rather than a fixed demo list. Suspend/activate choices
+// made by the admin are remembered per-email in admin_user_status.
+function getAdminUsers() {
+    let users = [];
+    try { users = JSON.parse(localStorage.getItem('bc_users')) || []; } catch { users = []; }
+    const overrides = JSON.parse(localStorage.getItem('admin_user_status') || '{}');
+
+    return users.map(u => ({
+        id: u.email,
+        name: u.name || u.email || 'Unknown',
+        role: u.role ? u.role.charAt(0).toUpperCase() + u.role.slice(1) : 'Customer',
+        active: '—', // no real login-activity tracking exists yet
+        status: overrides[u.email] || 'Active',
+    }));
+}
+
+// Reads every real booking from the shared marketplace booking store and
+// shapes it for the Booking Management cards, newest first.
+function getAdminBookings() {
+    return getBookings()
+        .slice()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .map(b => ({
+            id: b.id,
+            shop: b.shopName || b.shopId || 'Unknown Shop',
+            customer: b.customer || 'Customer',
+            service: b.service || 'Service',
+            slot: formatAdminBookingSlot(b),
+            status: b.status || 'Pending',
+            progress: b.status === 'Confirmed' ? 100 : b.status === 'Cancelled' ? 0 : 45,
+        }));
+}
+
+function formatAdminBookingSlot(b) {
+    if (!b.date) return b.time || '—';
+    try {
+        const label = new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        return `${label}, ${b.time || ''}`.trim();
+    } catch {
+        return `${b.date} ${b.time || ''}`.trim();
+    }
 }
 
 // Reads real owner registrations saved by login.html (key: bc_users)
@@ -1484,6 +1530,62 @@ function updateAdminStats() {
 
     const totalShopsEl = document.getElementById('adminTotalShops');
     if (totalShopsEl) totalShopsEl.textContent = getAllMarketplaceShops().length;
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const activeBookings = getBookings().filter(b => b.status !== 'Cancelled' && b.createdAt);
+
+    const thisWeek = activeBookings.filter(b => (now - new Date(b.createdAt).getTime()) <= 7 * DAY_MS);
+    const lastWeek = activeBookings.filter(b => {
+        const age = now - new Date(b.createdAt).getTime();
+        return age > 7 * DAY_MS && age <= 14 * DAY_MS;
+    });
+
+    const weeklyBookingsEl = document.getElementById('adminWeeklyBookings');
+    if (weeklyBookingsEl) weeklyBookingsEl.textContent = thisWeek.length;
+
+    const growthEl = document.getElementById('adminRevenueGrowth');
+    if (growthEl) {
+        const thisWeekRevenue = thisWeek.reduce((sum, b) => sum + parsePriceValue(b.price), 0);
+        const lastWeekRevenue = lastWeek.reduce((sum, b) => sum + parsePriceValue(b.price), 0);
+
+        if (lastWeekRevenue === 0) {
+            growthEl.textContent = thisWeekRevenue > 0 ? 'New' : '—';
+        } else {
+            const growth = ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100;
+            growthEl.textContent = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+        }
+    }
+}
+
+// Total revenue, top-earning shop, and average ticket size, all computed
+// from real (non-cancelled) bookings rather than a fixed demo figure.
+function renderRevenueSummary() {
+    const totalEl = document.getElementById('adminTotalRevenue');
+    const topShopEl = document.getElementById('adminTopShop');
+    const avgTicketEl = document.getElementById('adminAvgTicket');
+    if (!totalEl && !topShopEl && !avgTicketEl) return;
+
+    const activeBookings = getBookings().filter(b => b.status !== 'Cancelled');
+    const totalRevenue = activeBookings.reduce((sum, b) => sum + parsePriceValue(b.price), 0);
+
+    if (totalEl) totalEl.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
+    if (avgTicketEl) {
+        avgTicketEl.textContent = activeBookings.length
+            ? `₹${Math.round(totalRevenue / activeBookings.length).toLocaleString('en-IN')}`
+            : '—';
+    }
+
+    if (topShopEl) {
+        const revenueByShop = {};
+        activeBookings.forEach(b => {
+            if (!b.shopId) return;
+            revenueByShop[b.shopId] = (revenueByShop[b.shopId] || 0) + parsePriceValue(b.price);
+        });
+        const topShopId = Object.keys(revenueByShop).sort((a, b) => revenueByShop[b] - revenueByShop[a])[0];
+        const topShop = topShopId ? getAllMarketplaceShops().find(s => s.id === topShopId) : null;
+        topShopEl.textContent = topShop ? topShop.name : '—';
+    }
 }
 
 function approveAllShops() {
@@ -1510,6 +1612,11 @@ function toggleUserStatus(id) {
     const user = appState.users.find(item => item.id === id);
     if (!user) return;
     user.status = user.status === 'Active' ? 'Suspended' : 'Active';
+
+    const overrides = JSON.parse(localStorage.getItem('admin_user_status') || '{}');
+    overrides[id] = user.status;
+    localStorage.setItem('admin_user_status', JSON.stringify(overrides));
+
     renderUserTable();
     showToast(`${user.name} is now ${user.status}`, 'success');
 }
@@ -1517,6 +1624,12 @@ function toggleUserStatus(id) {
 function renderBookingCards() {
     const container = document.getElementById('bookingCards');
     if (!container) return;
+
+    if (!appState.bookings.length) {
+        container.innerHTML = '<p class="muted">No bookings have been placed yet.</p>';
+        return;
+    }
+
     container.innerHTML = appState.bookings.map(booking => `
         <article class="booking-card">
             <div>
@@ -1535,13 +1648,33 @@ function renderBookingCards() {
 function renderAdminChart() {
     const ctx = document.getElementById('adminRevenueChart');
     if (!ctx) return;
-    new Chart(ctx, {
+
+    // Build the last 7 calendar days and sum real, non-cancelled booking
+    // revenue against each day, instead of a fixed demo curve.
+    const activeBookings = getBookings().filter(b => b.status !== 'Cancelled' && b.createdAt);
+    const labels = [];
+    const revenueByDay = [];
+    for (let i = 6; i >= 0; i--) {
+        const day = new Date();
+        day.setDate(day.getDate() - i);
+        labels.push(day.toLocaleDateString('en-IN', { weekday: 'short' }));
+        const total = activeBookings
+            .filter(b => new Date(b.createdAt).toDateString() === day.toDateString())
+            .reduce((sum, b) => sum + parsePriceValue(b.price), 0);
+        revenueByDay.push(total);
+    }
+
+    if (window._adminChartInstance) {
+        window._adminChartInstance.destroy();
+    }
+
+    window._adminChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels,
             datasets: [{
                 label: 'Revenue',
-                data: [55000, 62000, 70000, 68000, 75000, 72000, 79000],
+                data: revenueByDay,
                 borderColor: '#d4af37',
                 backgroundColor: 'rgba(212,175,55,0.18)',
                 fill: true,
@@ -1560,12 +1693,17 @@ function renderAdminChart() {
 }
 
 function refreshUsers() {
+    appState.users = getAdminUsers();
     renderUserTable();
     showToast('User list refreshed', 'success');
 }
 
 function refreshBookings() {
+    appState.bookings = getAdminBookings();
     renderBookingCards();
+    updateAdminStats();
+    renderRevenueSummary();
+    renderAdminChart();
     showToast('Booking feed refreshed', 'success');
 }
 
@@ -5084,13 +5222,11 @@ function renderShopAnalytics() {
     const container = document.getElementById('shopAnalyticsGrid');
     if (!container) return;
 
+    const allBookings = getBookings();
+
     container.innerHTML = getAllMarketplaceShops().map(shop => {
-        const shopBookings = sampleBookings.filter(b => b.shop === shop.name);
-        const shopReviews = (appState.barberReviews || []).filter(r => {
-            const barber = sampleBarbers.find(b => b.id === r.barberId);
-            return barber != null; // simplified link since reviews are barber-scoped
-        });
-        const estimatedRevenue = shopBookings.length * 650;
+        const shopBookings = allBookings.filter(b => b.shopId === shop.id && b.status !== 'Cancelled');
+        const shopRevenue = shopBookings.reduce((sum, b) => sum + parsePriceValue(b.price), 0);
 
         return `
         <div class="analytics-shop-card">
@@ -5107,8 +5243,8 @@ function renderShopAnalytics() {
                     <strong>${shopBookings.length}</strong>
                 </div>
                 <div class="analytics-stat">
-                    <span class="muted">Est. Revenue</span>
-                    <strong>₹${estimatedRevenue.toLocaleString('en-IN')}</strong>
+                    <span class="muted">Revenue</span>
+                    <strong>₹${shopRevenue.toLocaleString('en-IN')}</strong>
                 </div>
                 <div class="analytics-stat">
                     <span class="muted">Rating</span>
@@ -5245,4 +5381,4 @@ function loadOwnerBookings(){
 
     `).join("");
 
-} 
+}
