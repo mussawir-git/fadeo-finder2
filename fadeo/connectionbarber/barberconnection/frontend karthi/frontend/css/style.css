@@ -3562,27 +3562,83 @@ select {
     font-size: 1.05rem;
 }
 
-/* ─── MOBILE CASCADE FIXES ────────────────────────────────────────────────
-   Each of these selectors already has a responsive rule earlier in this
-   file (inside an @media block) meant to change its layout on small
-   screens. But each one *also* has an unconditional rule declared further
-   down the file, and since both rules have equal specificity, the later
-   unconditional rule silently won at every screen size, including phones.
-   Placing the fix here — genuinely last in the cascade — restores the
-   originally-intended responsive behaviour without touching the rules
-   above (lower risk than reordering the whole file).
-   Affected: shop card action buttons stayed a fixed 2-column grid on every
-   phone (causing the squeezed/wrapped button text), the landing search
-   row stayed a 2-column grid on tablets, and the booking time-slot grid
-   ignored its intended 2-column layout between ~650-900px. */
-@media (max-width: 650px) {
-    .shop-card-actions { grid-template-columns: 1fr; }
+/* ─── CUSTOMER DASHBOARD: MOBILE LAYOUT FIX ──────────────────────────────
+   .profile-summary previously had no grid-template-columns, so its 3 stat
+   cards (Loyalty Points / Membership / Saved Shops) always stacked into
+   full-width rows instead of sitting neatly side by side. Placed last so
+   it wins the cascade over the earlier conflicting rules. */
+.profile-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    width: 100%;
 }
 
-@media (max-width: 900px) {
-    .search-row { grid-template-columns: 1fr; }
+.profile-summary div {
+    text-align: center;
 }
 
-@media (max-width: 900px) and (min-width: 641px) {
-    .time-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+    .customer-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+
+    .customer-brand {
+        justify-content: center;
+    }
+
+    .customer-actions {
+        justify-content: center;
+    }
+
+    .profile-top {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-avatar-wrap {
+        margin: 0 auto;
+    }
+
+    .profile-info {
+        width: 100%;
+    }
+
+    .profile-info .muted {
+        justify-content: center;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .profile-summary {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .profile-summary div {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .profile-summary span {
+        font-size: 0.72rem;
+    }
+
+    .profile-summary strong {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .profile-summary {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+    }
+
+    .profile-summary div {
+        padding: 0.6rem 0.35rem;
+    }
 }
