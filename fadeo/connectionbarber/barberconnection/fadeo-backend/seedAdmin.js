@@ -1,13 +1,16 @@
-// Run once with: node seed/seedAdmin.js
-// Creates the demo admin account shown in login.html's credential hint:
-//   Email: you@gmail.com   Password: 123@34567
+// Run once with: node seedAdmin.js
+// Creates ONE shared admin account that both you and your teammate log into.
+// Since both of you use the same email/password AND the same Supabase
+// database, whichever one of you approves/rejects/deletes a shop, the other
+// will see that change immediately (no separate local copies anymore).
+
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const supabase = require('../config/supabaseClient');
+const supabase = require('./supabaseClient'); // fixed path — was '../config/supabaseClient'
 
-const ADMIN_NAME = 'Admin';
-const ADMIN_EMAIL = 'you@gmail.com';
-const ADMIN_PASSWORD = '123@34567';
+const ADMIN_NAME = 'Fadeo Admin';
+const ADMIN_EMAIL = 'admin@fadeofinder.com'; // change this to whatever email you both want to share
+const ADMIN_PASSWORD = 'ChangeThis@123';     // change this to a real shared password
 
 async function seedAdmin() {
   const { data: existing, error: lookupErr } = await supabase

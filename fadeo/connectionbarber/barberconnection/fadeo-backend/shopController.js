@@ -46,4 +46,17 @@ async function reject(req, res, next) {
   }
 }
 
-module.exports = { listPending, listAll, approve, reject };
+// ── DELETE /api/shops/:id ── (admin only) — NEW
+async function remove(req, res, next) {
+  try {
+    const { id } = req.params;
+    const shop = await store.deleteShop(id);
+    if (!shop) return res.status(404).json({ message: 'Shop not found.' });
+
+    res.status(200).json({ message: `${shop.shop_name} deleted.`, shop });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listPending, listAll, approve, reject, remove };
