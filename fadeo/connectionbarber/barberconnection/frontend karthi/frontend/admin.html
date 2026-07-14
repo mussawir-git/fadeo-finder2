@@ -39,19 +39,22 @@
         <aside class="sidebar">
             <div class="brand-sidebar">
                 <img src="images/logo.jpeg">
-                <span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span>
+                <div class="brand-sidebar-text">
+                    <span class="brand-title"><span style="color:var(--text);">Fadeo</span> <span style="color:var(--accent);">Finder</span></span>
+                    <span class="brand-subtitle">Admin Panel</span>
+                </div>
             </div>
             <nav class="sidebar-nav">
-                <a href="#overview" class="sidebar-link active">Dashboard</a>
-                <a href="#approvals" class="sidebar-link">Shop Approvals</a>
-                <a href="#manage-shops" class="sidebar-link">Manage Shops</a>
-                <a href="#moderation" class="sidebar-link">Review Moderation</a>
-                <a href="#users" class="sidebar-link">User Management</a>
-                <a href="#bookings" class="sidebar-link">Booking Management</a>
-                <a href="#notifications" class="sidebar-link">Push Notifications</a>
-                <a href="#analytics" class="sidebar-link">Shop Analytics</a>
-                <a href="#revenue" class="sidebar-link">Revenue</a>
-                <a href="index.html" class="sidebar-link">Marketplace</a>
+                <a href="#overview" class="sidebar-link active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+                <a href="#users" class="sidebar-link"><i class="fa-solid fa-users"></i> Users</a>
+                <a href="#manage-shops" class="sidebar-link"><i class="fa-solid fa-store"></i> Shops</a>
+                <a href="#bookings" class="sidebar-link"><i class="fa-solid fa-calendar-check"></i> Appointments</a>
+                <a href="#approvals" class="sidebar-link"><i class="fa-solid fa-clipboard-check"></i> Shop Approvals</a>
+                <a href="#moderation" class="sidebar-link"><i class="fa-solid fa-flag"></i> Review Moderation</a>
+                <a href="#notifications" class="sidebar-link"><i class="fa-solid fa-bell"></i> Push Notifications</a>
+                <a href="#analytics" class="sidebar-link"><i class="fa-solid fa-chart-line"></i> Shop Analytics</a>
+                <a href="#revenue" class="sidebar-link"><i class="fa-solid fa-sack-dollar"></i> Revenue</a>
+                <a href="index.html" class="sidebar-link"><i class="fa-solid fa-shop"></i> Marketplace</a>
                 <a href="#" class="sidebar-link" onclick="logout()" style="color:#f25f5c;">
                     <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </a>
@@ -62,7 +65,7 @@
         </aside>
 
         <main class="main-content">
-            <header class="page-header">
+            <header class="page-header topbar">
                 <div>
                     <p class="eyebrow">Administrator Console</p>
                     <h1>Platform Operations</h1>
@@ -71,43 +74,123 @@
                     <span id="adminWelcome" style="color:var(--muted);font-size:0.9rem;align-self:center;"></span>
                     <button class="btn btn-secondary" onclick="navigatePage('customer.html')">Open Customer UI</button>
                     <button class="btn btn-primary" onclick="navigatePage('owner.html')">Open Owner UI</button>
+                    <button class="topbar-icon-btn" id="notifBellBtn" onclick="location.hash='#notifications'" aria-label="Notifications">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="notif-badge" id="notifBadgeCount">0</span>
+                    </button>
+                    <div class="topbar-avatar" id="topbarAvatar">A</div>
                 </div>
             </header>
 
-            <!-- OVERVIEW -->
+            <!-- OVERVIEW / DASHBOARD -->
             <section id="overview" class="section">
-                <div class="cards-grid">
-                    <div class="metric-card">
-                        <span class="metric-title">Total Active Shops</span>
-                        <strong id="adminTotalShops">—</strong>
-                        <p>Verified listings on the marketplace.</p>
+
+                <div class="welcome-banner">
+                    <div>
+                        <h2>Welcome back, Admin!</h2>
+                        <p>Here's what's happening today.</p>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-title">Pending Approvals</span>
-                        <strong id="adminPendingApprovals">—</strong>
-                        <p>New owners waiting for review.</p>
+                    <div class="welcome-banner-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                </div>
+
+                <div class="dash-stats-grid">
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-users"></i></div>
+                        <div class="dash-stat-body">
+                            <span class="dash-stat-title">Total Users</span>
+                            <strong id="dashTotalUsers">—</strong>
+                            <span class="dash-stat-change" id="dashTotalUsersChange">vs last month</span>
+                        </div>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-title">Weekly Bookings</span>
-                        <strong id="adminWeeklyBookings">—</strong>
-                        <p>Appointments placed in the last 7 days.</p>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-store"></i></div>
+                        <div class="dash-stat-body">
+                            <span class="dash-stat-title">Total Barber Shops</span>
+                            <strong id="dashTotalShops">—</strong>
+                            <span class="dash-stat-change" id="dashTotalShopsChange">vs last month</span>
+                        </div>
                     </div>
-                    <div class="metric-card">
-                        <span class="metric-title">Revenue Growth</span>
-                        <strong id="adminRevenueGrowth">—</strong>
-                        <p>Vs. the previous 7 days.</p>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-scissors"></i></div>
+                        <div class="dash-stat-body">
+                            <span class="dash-stat-title">Total Barbers</span>
+                            <strong id="dashTotalBarbers">—</strong>
+                            <span class="dash-stat-change" id="dashTotalBarbersChange">vs last month</span>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                        <div class="dash-stat-body">
+                            <span class="dash-stat-title">Total Appointments</span>
+                            <strong id="dashTotalAppointments">—</strong>
+                            <span class="dash-stat-change" id="dashTotalAppointmentsChange">vs last month</span>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card">
+                        <div class="dash-stat-icon"><i class="fa-solid fa-credit-card"></i></div>
+                        <div class="dash-stat-body">
+                            <span class="dash-stat-title">Total Revenue</span>
+                            <strong id="dashTotalRevenue">—</strong>
+                            <span class="dash-stat-change" id="dashTotalRevenueChange">vs last month</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="analytics-card">
-                    <div class="section-headline">
-                        <div>
-                            <h2>Revenue Analytics</h2>
-                            <p>Platform performance and booking trends.</p>
+                <div class="dash-two-col">
+                    <div class="analytics-card">
+                        <div class="section-headline">
+                            <div>
+                                <h2>Appointments Overview</h2>
+                            </div>
+                            <select class="chip-select" id="apptOverviewRange" onchange="renderAppointmentsOverviewChart()">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30">Last 30 Days</option>
+                            </select>
                         </div>
-                        <div class="chip">Monthly view</div>
+                        <canvas id="apptOverviewChart" height="220"></canvas>
                     </div>
-                    <canvas id="adminRevenueChart" height="220"></canvas>
+
+                    <div class="card list-card">
+                        <div class="section-headline">
+                            <h2>Recent Appointments</h2>
+                            <a href="#bookings" class="view-all-link">View All</a>
+                        </div>
+                        <div class="recent-appt-list" id="recentApptList"></div>
+                    </div>
+                </div>
+
+                <div class="dash-two-col">
+                    <div class="card list-card">
+                        <div class="section-headline">
+                            <h2>Top Barber Shops</h2>
+                            <a href="#manage-shops" class="view-all-link">View All</a>
+                        </div>
+                        <div class="top-shops-list" id="topShopsList"></div>
+                    </div>
+
+                    <div class="card list-card">
+                        <div class="section-headline">
+                            <h2>User Overview</h2>
+                        </div>
+                        <div class="user-overview-body">
+                            <div class="user-overview-chart-wrap">
+                                <canvas id="userOverviewChart"></canvas>
+                                <div class="donut-center" id="userOverviewCenter">
+                                    <strong id="userOverviewTotal">—</strong>
+                                    <span>Total Users</span>
+                                </div>
+                            </div>
+                            <div class="donut-legend" id="userOverviewLegend"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card list-card">
+                    <div class="section-headline">
+                        <h2>Recent Registered Users</h2>
+                        <a href="#users" class="view-all-link">View All</a>
+                    </div>
+                    <div class="recent-users-list" id="recentUsersList"></div>
                 </div>
             </section>
 
@@ -265,6 +348,24 @@
         </main>
     </div>
 
+    <nav class="bottom-nav">
+        <a href="#overview" class="bottom-nav-link active" data-bottom-nav="overview">
+            <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+        </a>
+        <a href="#users" class="bottom-nav-link" data-bottom-nav="users">
+            <i class="fa-solid fa-user"></i><span>Users</span>
+        </a>
+        <a href="#manage-shops" class="bottom-nav-link" data-bottom-nav="manage-shops">
+            <i class="fa-solid fa-store"></i><span>Shops</span>
+        </a>
+        <a href="#bookings" class="bottom-nav-link" data-bottom-nav="bookings">
+            <i class="fa-solid fa-calendar-days"></i><span>Appointments</span>
+        </a>
+        <a href="#" class="bottom-nav-link" onclick="document.getElementById('mobileMenuToggle').click(); return false;">
+            <i class="fa-solid fa-ellipsis"></i><span>More</span>
+        </a>
+    </nav>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="js/script.js"></script>
 
@@ -276,8 +377,23 @@
             if (session && session.name) {
                 const el = document.getElementById('adminWelcome');
                 if (el) el.textContent = 'Hello, ' + session.name;
+                const avatarEl = document.getElementById('topbarAvatar');
+                if (avatarEl) {
+                    const initials = session.name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                    avatarEl.textContent = initials || 'A';
+                }
             }
         })();
+
+        // Keep the mobile bottom-nav's active tab in sync with the visible section
+        function syncBottomNavActive() {
+            const hash = (location.hash || '#overview').replace('#', '');
+            document.querySelectorAll('.bottom-nav-link[data-bottom-nav]').forEach(link => {
+                link.classList.toggle('active', link.dataset.bottomNav === hash);
+            });
+        }
+        window.addEventListener('hashchange', syncBottomNavActive);
+        syncBottomNavActive();
 
         // Logout: clear session and go back to login
         function logout() {
