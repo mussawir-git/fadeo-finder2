@@ -1188,7 +1188,287 @@ function loadAdminData() {
     renderNotificationHistory();
     renderShopAnalytics();
     renderRevenueSummary();
+    renderDashboardOverview();
     document.getElementById('loadingOverlay')?.classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD OVERVIEW (stat cards, appointments chart, recent lists,
+// top shops, user breakdown donut) — all derived from real stored data
+// (registered accounts, approved shops, and real bookings).
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderDashboardOverview() {
+    renderDashboardStats();
+    renderAppointmentsOverviewChart();
+    renderRecentAppointmentsList();
+    renderTopBarberShopsList();
+    renderUserOverviewDonut();
+    renderRecentRegisteredUsersList();
+    renderNotifBellBadge();
+}
+
+// Every shop's barber count is synced onto its marketplace record whenever
+// an owner saves their roster (see syncOwnerDataToMarketplace). Shops that
+// haven't set one up yet fall back to 0 rather than a made-up number.
+function getTotalBarberCount(shops) {
+    return shops.reduce((sum, s) => sum + (s.barberCount || 0), 0);
+}
+
+function initials(name) {
+    return (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+function renderDashboardStats() {
+    const shops = getAllMarketplaceShops();
+    const users = appState.users.length ? appState.users : getAdminUsers();
+    const totalBarbers = getTotalBarberCount(shops);
+    const totalUsers = users.length + totalBarbers; // registered accounts + barbers on staff
+    const bookings = getBookings();
+    const activeBookings = bookings.filter(b => b.status !== 'Cancelled');
+    const totalRevenue = activeBookings.reduce((sum, b) => sum + parsePriceValue(b.price), 0);
+
+    setText('dashTotalUsers', totalUsers.toLocaleString('en-IN'));
+    setText('dashTotalShops', shops.length.toLocaleString('en-IN'));
+    setText('dashTotalBarbers', totalBarbers.toLocaleString('en-IN'));
+    setText('dashTotalAppointments', bookings.length.toLocaleString('en-IN'));
+    setText('dashTotalRevenue', `₹${totalRevenue.toLocaleString('en-IN')}`);
+
+    // Real week-over-week deltas only where we actually track timestamps
+    // (bookings have createdAt); the rest show a neutral live-count label
+    // instead of a fabricated percentage.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const withDates = bookings.filter(b => b.createdAt);
+    const thisWeek = withDates.filter(b => (now - new Date(b.createdAt).getTime()) <= 7 * DAY_MS);
+    const lastWeek = withDates.filter(b => {
+        const age = now - new Date(b.createdAt).getTime();
+        return age > 7 * DAY_MS && age <= 14 * DAY_MS;
+    });
+    setChange('dashTotalAppointmentsChange', pctChange(thisWeek.length, lastWeek.length), 'this week');
+
+    const thisWeekRevenue = thisWeek.filter(b => b.status !== 'Cancelled').reduce((s, b) => s + parsePriceValue(b.price), 0);
+    const lastWeekRevenue = lastWeek.filter(b => b.status !== 'Cancelled').reduce((s, b) => s + parsePriceValue(b.price), 0);
+    setChange('dashTotalRevenueChange', pctChange(thisWeekRevenue, lastWeekRevenue), 'this week');
+
+    setText('dashTotalUsersChange', `${users.length} accounts · ${totalBarbers} on staff`);
+    setText('dashTotalShopsChange', 'Live on marketplace');
+    setText('dashTotalBarbersChange', 'Across all shops');
+}
+
+function pctChange(current, previous) {
+    if (!previous) return current > 0 ? { label: 'New', cls: 'positive' } : null;
+    const pct = ((current - previous) / previous) * 100;
+    return { label: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, cls: pct >= 0 ? 'positive' : 'negative' };
+}
+
+function setChange(id, change, suffix) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('positive', 'negative');
+    if (!change) { el.textContent = `vs ${suffix}`; return; }
+    el.classList.add(change.cls);
+    el.textContent = `${change.label} ${suffix}`;
+}
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+let apptOverviewChartInstance = null;
+
+function renderAppointmentsOverviewChart() {
+    const ctx = document.getElementById('apptOverviewChart');
+    if (!ctx) return;
+
+    const days = Number(document.getElementById('apptOverviewRange')?.value || 7);
+    const bookings = getBookings().filter(b => b.createdAt);
+    const labels = [];
+    const counts = [];
+    for (let i = days - 1; i >= 0; i--) {
+        const day = new Date();
+        day.setDate(day.getDate() - i);
+        labels.push(day.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+        counts.push(bookings.filter(b => new Date(b.createdAt).toDateString() === day.toDateString()).length);
+    }
+
+    if (!window.Chart) return;
+    if (apptOverviewChartInstance) apptOverviewChartInstance.destroy();
+
+    apptOverviewChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Appointments',
+                data: counts,
+                borderColor: '#d4af37',
+                backgroundColor: 'rgba(212,175,55,0.18)',
+                fill: true,
+                tension: 0.35,
+                pointBackgroundColor: '#d4af37',
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#a7b1c2' } },
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#a7b1c2', precision: 0 } }
+            }
+        }
+    });
+}
+
+function renderRecentAppointmentsList() {
+    const container = document.getElementById('recentApptList');
+    if (!container) return;
+
+    const recent = getAdminBookings().slice(0, 5);
+    if (!recent.length) {
+        container.innerHTML = '<p class="muted">No appointments booked yet.</p>';
+        return;
+    }
+
+    const badgeClass = status => ({
+        Confirmed: 'badge-confirmed',
+        Pending: 'badge-pending',
+        Cancelled: 'badge-cancelled',
+        Completed: 'badge-completed',
+    }[status] || 'badge-pending');
+
+    container.innerHTML = recent.map(b => `
+        <div class="recent-appt-item">
+            <div class="avatar-initials">${initials(b.customer)}</div>
+            <div class="recent-appt-info">
+                <strong>${b.customer}</strong>
+                <span>${b.shop} &middot; ${b.service}</span>
+            </div>
+            <div class="recent-appt-meta">
+                <span class="status-badge ${badgeClass(b.status)}">${b.status}</span>
+                <small>${b.slot}</small>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderTopBarberShopsList() {
+    const container = document.getElementById('topShopsList');
+    if (!container) return;
+
+    const bookings = getBookings();
+    const countByShop = {};
+    bookings.forEach(b => { if (b.shopId) countByShop[b.shopId] = (countByShop[b.shopId] || 0) + 1; });
+
+    const shops = getAllMarketplaceShops()
+        .map(s => ({ ...s, apptCount: countByShop[s.id] || 0 }))
+        .sort((a, b) => b.apptCount - a.apptCount || b.rating - a.rating)
+        .slice(0, 5);
+
+    if (!shops.length) {
+        container.innerHTML = '<p class="muted">No shops on the marketplace yet.</p>';
+        return;
+    }
+
+    container.innerHTML = shops.map((s, i) => `
+        <div class="top-shop-item">
+            <span class="top-shop-rank">${i + 1}</span>
+            <img class="top-shop-thumb" src="${s.image}" alt="${s.name}">
+            <div class="top-shop-info">
+                <strong>${s.name}</strong>
+                <span class="muted" style="font-size:.78rem;">${s.location}</span>
+            </div>
+            <div class="top-shop-meta">
+                <div class="rating">★ ${s.rating || 0}</div>
+                <div>${s.apptCount} Appointment${s.apptCount === 1 ? '' : 's'}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+let userOverviewChartInstance = null;
+
+function renderUserOverviewDonut() {
+    const canvas = document.getElementById('userOverviewChart');
+    const legend = document.getElementById('userOverviewLegend');
+    if (!canvas || !legend) return;
+
+    const users = appState.users.length ? appState.users : getAdminUsers();
+    const customers = users.filter(u => u.role === 'Customer').length;
+    const owners = users.filter(u => u.role === 'Owner').length;
+    const barbers = getTotalBarberCount(getAllMarketplaceShops());
+    const total = customers + owners + barbers;
+
+    setText('userOverviewTotal', total.toLocaleString('en-IN'));
+
+    const segments = [
+        { label: 'Customers', value: customers, color: '#d4af37' },
+        { label: 'Barbers', value: barbers, color: '#8a6d1e' },
+        { label: 'Shop Owners', value: owners, color: '#5c5c5c' },
+    ];
+
+    legend.innerHTML = segments.map(seg => `
+        <div class="donut-legend-item">
+            <span class="donut-legend-dot" style="background:${seg.color};"></span>
+            <span class="label">${seg.label}</span>
+            <span class="value">${seg.value} (${total ? ((seg.value / total) * 100).toFixed(1) : '0.0'}%)</span>
+        </div>
+    `).join('');
+
+    if (!window.Chart) return;
+    if (userOverviewChartInstance) userOverviewChartInstance.destroy();
+
+    userOverviewChartInstance = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: segments.map(s => s.label),
+            datasets: [{
+                data: segments.map(s => s.value),
+                backgroundColor: segments.map(s => s.color),
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '72%',
+            plugins: { legend: { display: false } },
+        }
+    });
+}
+
+function renderRecentRegisteredUsersList() {
+    const container = document.getElementById('recentUsersList');
+    if (!container) return;
+
+    const users = (appState.users.length ? appState.users : getAdminUsers()).slice().reverse().slice(0, 5);
+    if (!users.length) {
+        container.innerHTML = '<p class="muted">No registered users yet.</p>';
+        return;
+    }
+
+    container.innerHTML = users.map(u => `
+        <div class="recent-user-item">
+            <div class="avatar-initials">${initials(u.name)}</div>
+            <div class="recent-user-info">
+                <strong>${u.name}</strong>
+                <span>${u.id || ''}</span>
+            </div>
+            <span class="recent-user-role">${u.role}</span>
+        </div>
+    `).join('');
+}
+
+// Badges the bell icon with pending shop approvals + unread notifications,
+// so it reflects things the admin actually needs to act on.
+function renderNotifBellBadge() {
+    const el = document.getElementById('notifBadgeCount');
+    if (!el) return;
+    const pending = getPendingOwnerRequests().length;
+    const count = pending; // pending approvals are the actionable item for admins
+    el.textContent = count;
+    el.style.display = count > 0 ? 'grid' : 'none';
 }
 
 // Reads every real registered account (customers, owners, admins) from the
