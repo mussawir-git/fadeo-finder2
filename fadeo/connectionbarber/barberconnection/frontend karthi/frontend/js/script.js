@@ -1171,10 +1171,10 @@ function applySearch() {
     showToast('Search results updated', 'success');
 }
 
-function loadAdminData() {
+async function loadAdminData() {
     appState.shops = getAllMarketplaceShops();
     appState.users = getAdminUsers();
-    appState.bookings = getAdminBookings();
+    appState.bookings = await getAdminBookings();
     appState.pendingApprovals = getPendingOwnerRequests();
     loadLocalState();
 
@@ -1465,7 +1465,7 @@ function renderRecentRegisteredUsersList() {
 function renderNotifBellBadge() {
     const el = document.getElementById('notifBadgeCount');
     if (!el) return;
-    const pending = getPendingOwnerRequests().length;
+    const pending = appState.pendingApprovals.length;
     const count = pending; // pending approvals are the actionable item for admins
     el.textContent = count;
     el.style.display = count > 0 ? 'grid' : 'none';
@@ -1517,21 +1517,26 @@ function formatAdminBookingSlot(b) {
 }
 
 // Reads real owner registrations saved by login.html (key: bc_users)
-function getPendingOwnerRequests() {
-    let users = [];
-    try { users = JSON.parse(localStorage.getItem('bc_users')) || []; }
-    catch { users = []; }
-
-    return users
-        .filter(u => u.role === 'owner' && u.approved === false)
-        .map(u => ({
-            id: `req-${u.email}`,
-            name: u.shopName || 'Unnamed Shop',
-            owner: u.name,
-            email: u.email,
-            location: u.location || '—',
+async function getPendingOwnerRequests() {
+    const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+    if (!session?.token) return [];
+    try {
+        const response = await fetch(`${API_BASE}/shops/pending`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.shops.map(shop => ({
+            id: shop.id,
+            name: shop.shop_name,
+            owner: shop.shop_username,
+            email: shop.shop_username,
+            location: shop.location,
             status: 'Pending',
         }));
+    } catch {
+        return [];
+    }
 }
 
 function renderApprovalTable() {
@@ -1561,28 +1566,29 @@ function renderApprovalTable() {
     `).join('');
 }
 
-function approveShop(id, email) {
-    // Update the actual user record in bc_users so they can log in
-    let users = [];
-    try { users = JSON.parse(localStorage.getItem('bc_users')) || []; } catch { users = []; }
-    const idx = users.findIndex(u => u.email === email && u.role === 'owner');
-    let approvedUser = null;
-    if (idx !== -1) {
-        users[idx].approved = true;
-        approvedUser = users[idx];
-        localStorage.setItem('bc_users', JSON.stringify(users));
-    }
+async function approveShop(id, email) {
+    const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+    if (!session?.token) return;
 
-    // Create a fresh, empty marketplace listing for this newly approved shop
-    if (approvedUser) {
-        addApprovedShopToMarketplace(approvedUser);
-    }
+    try {
+        const response = await fetch(`${API_BASE}/shops/${id}/approve`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        if (!response.ok) throw new Error('Approve failed');
 
+        appState.pendingApprovals = appState.pendingApprovals.filter(shop => shop.id !== id);
+        renderApprovalTable();
+        showToast('Shop approved! Now live on the marketplace.', 'success');
+    } catch {
+        showToast('Could not approve shop — try again.', 'error');
+    }
+}
     appState.pendingApprovals = appState.pendingApprovals.filter(shop => shop.id !== id);
     renderApprovalTable();
     updateAdminStats();
     showToast('Shop approved! Now live on the marketplace.', 'success');
-}
+
 
 // ─── REAL MARKETPLACE SHOPS (added when admin approves an owner) ────────────
 
@@ -1791,17 +1797,24 @@ function sortMarketplaceShops(shops) {
     });
 }
 
-function rejectShop(id, email) {
-    // Remove the registration entirely from bc_users
-    let users = [];
-    try { users = JSON.parse(localStorage.getItem('bc_users')) || []; } catch { users = []; }
-    users = users.filter(u => !(u.email === email && u.role === 'owner'));
-    localStorage.setItem('bc_users', JSON.stringify(users));
+async function rejectShop(id, email) {
+    const session = JSON.parse(localStorage.getItem('bc_session') || 'null');
+    if (!session?.token) return;
 
-    appState.pendingApprovals = appState.pendingApprovals.filter(shop => shop.id !== id);
-    renderApprovalTable();
-    updateAdminStats();
-    showToast('Shop registration rejected.', 'success');
+    try {
+        const response = await fetch(`${API_BASE}/shops/${id}/reject`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        if (!response.ok) throw new Error('Reject failed');
+
+        appState.pendingApprovals = appState.pendingApprovals.filter(shop => shop.id !== id);
+        renderApprovalTable();
+        updateAdminStats();
+        showToast('Shop registration rejected.', 'success');
+    } catch {
+        showToast('Could not reject shop — try again.', 'error');
+    }
 }
 
 function updateAdminStats() {
